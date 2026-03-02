@@ -2,12 +2,12 @@
 
 This directory contains a simple REST API server implemented in Go using the Gin framework. It powers the ad management dashboard with the following capabilities:
 
-- CRUD operations for ads
+- CRUD operations for ads persisted in MongoDB
 - Fixed total account balance ($5,000) enforced when creating new ads
 - Ad scheduling (start/end times)
 - Geofencing metadata
 
-Data is stored in memory using a thread-safe map. The server does not persist across restarts.
+All state (ads and metrics) is stored in MongoDB. There is no in-process data store; metrics flow through Kafka into Mongo and are queried directly from there.
 
 ## Running the server
 

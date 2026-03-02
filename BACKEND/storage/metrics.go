@@ -29,18 +29,35 @@ func NewMetricsStore(db *mongo.Database) *MetricsStore {
 }
 
 func (s *MetricsStore) Increment(adID string, event string) error {
+	// Skip empty ad IDs to prevent junk data
+	if adID == "" {
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
 	update := bson.M{
-		"$setOnInsert": bson.M{"adId": adID, "updatedAt": time.Now()},
+		// Only set these if the document is brand new
+		"$setOnInsert": bson.M{
+			"adId":      adID,
+			"createdAt": time.Now(),
+		},
+		// Always update this
+		"$set": bson.M{
+			"updatedAt": time.Now(),
+		},
 	}
+
 	if event == "impression" {
 		update["$inc"] = bson.M{"impressions": 1}
 	} else if event == "click" {
 		update["$inc"] = bson.M{"clicks": 1}
 	}
-	update["$set"] = bson.M{"updatedAt": time.Now()}
-	_, err := s.col.UpdateOne(ctx, bson.M{"adId": adID}, update, options.Update().SetUpsert(true))
+
+	opts := options.Update().SetUpsert(true)
+	_, err := s.col.UpdateOne(ctx, bson.M{"adId": adID}, update, opts)
+
 	return err
 }
 
