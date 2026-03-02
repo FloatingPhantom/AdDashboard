@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
 
 	"github.com/Shopify/sarama"
 	"myrik.com/ad/storage" // Ensure this path matches your module
@@ -28,19 +29,16 @@ func (c *metricsConsumer) Cleanup(sarama.ConsumerGroupSession) error {
 func (c *metricsConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		topic := msg.Topic
-		log.Printf("[Kafka] Received %s event | Partition: %d | Offset: %d", topic, msg.Partition, msg.Offset)
 
 		var evt struct {
 			AdID string `json:"adId"`
 		}
 
-		// Parse the event
 		if err := json.Unmarshal(msg.Value, &evt); err != nil {
 			log.Printf("[Kafka] ERROR unmarshaling %s event: %v", topic, err)
 		} else {
 			eventType := topic[:len(topic)-1] // 'impressions' -> 'impression'
 
-			// Increment metric in MongoDB
 			err := c.ms.Increment(evt.AdID, eventType)
 			if err != nil {
 				log.Printf("[Metrics] ERROR saving to MongoDB for AdID %s: %v", evt.AdID, err)
@@ -49,44 +47,53 @@ func (c *metricsConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			}
 		}
 
-		// THE MAGIC FIX: Mark the message as processed!
-		// This tells Kafka to commit the offset so we never read this message again.
+		// 1. Mark the message as processed locally
 		session.MarkMessage(msg, "")
-	}
 
+		// 2. FORCE an immediate commit to the Kafka Broker
+		// This bypasses the auto-commit timer and guarantees Kafka saves the state NOW.
+		session.Commit()
+	}
 	return nil
 }
 
-// 2. Updated startConsumer function
-func startConsumer(brokers []string, ms *storage.MetricsStore) {
-	cfg := sarama.NewConfig()
-	// This only applies the VERY first time the consumer group starts.
-	// After that, it relies on the committed offsets.
-	cfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+// Update the function signature to take a Context and a WaitGroup
+func startConsumer(ctx context.Context, wg *sync.WaitGroup, brokers []string, ms *storage.MetricsStore) {
+	defer wg.Done() // Tell main we are completely finished when this function exits
 
-	// This ID is how Kafka identifies this specific consumer.
-	// Changing this ID will cause it to read from the beginning again!
+	cfg := sarama.NewConfig()
+	cfg.Version = sarama.V2_8_0_0
+	cfg.Consumer.Offsets.Initial = sarama.OffsetNewest
+
+	// Ensure auto-commit is enabled (it usually is by default, but good to be explicit)
+	cfg.Consumer.Offsets.AutoCommit.Enable = true
+
 	groupID := "ad-metrics-processor"
 
 	cg, err := sarama.NewConsumerGroup(brokers, groupID, cfg)
 	if err != nil {
 		log.Fatalf("[Kafka] Consumer group creation failed: %v", err)
 	}
+	defer cg.Close() // Ensure the consumer group is cleanly closed
 
 	consumer := &metricsConsumer{ms: ms}
 	topics := []string{"impressions", "clicks"}
 
-	// Run the consumer in the background
-	go func() {
-		for {
-			// Consume joins the cluster, syncs state, and processes messages.
-			// It blocks until a rebalance happens or context is canceled.
-			err := cg.Consume(context.Background(), topics, consumer)
-			if err != nil {
-				log.Printf("[Kafka] Error from consumer group: %v", err)
-			}
-		}
-	}()
-
 	log.Printf("[Kafka] Started Consumer Group '%s' for topics: %v", groupID, topics)
+
+	// We run the consume loop until the context is canceled
+	for {
+		// Pass the context into cg.Consume.
+		// When the context is canceled, Consume will exit.
+		err := cg.Consume(ctx, topics, consumer)
+		if err != nil {
+			log.Printf("[Kafka] Error from consumer group: %v", err)
+		}
+
+		// If the context was canceled, break the loop and exit
+		if ctx.Err() != nil {
+			log.Println("[Kafka] Consumer loop exiting due to context cancellation...")
+			return
+		}
+	}
 }
