@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchAds, fetchMetrics } from '../api';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Eye, MousePointerClick, TrendingUp, DollarSign, ArrowLeft } from 'lucide-react';
 
 const AdMetrics = () => {
@@ -32,7 +32,7 @@ const AdMetrics = () => {
   
   const computeCPC = (impressions, clicks, dailyLimit) => {
     if (!clicks) return 0;
-    return dailyLimit / clicks; // Assuming dailyLimit represents total spend for this example
+    return dailyLimit / clicks; 
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400 animate-pulse">Loading metrics dashboard...</div>;
@@ -44,14 +44,21 @@ const AdMetrics = () => {
   const ctr = ad.metrics?.ctr !== undefined ? ad.metrics.ctr.toFixed(2) : computeCTR(impressions, clicks).toFixed(2);
   const cpc = ad.metrics?.cpc !== undefined ? ad.metrics.cpc.toFixed(2) : computeCPC(impressions, clicks, ad.dailyLimit || 0).toFixed(2);
 
-  // MOCK DATA: Replace this with real time-series data from your backend later
-  const mockChartData = [
-    { day: 'Mon', impressions: Math.max(0, impressions - 500), clicks: Math.max(0, clicks - 20) },
-    { day: 'Tue', impressions: Math.max(0, impressions - 400), clicks: Math.max(0, clicks - 15) },
-    { day: 'Wed', impressions: Math.max(0, impressions - 200), clicks: Math.max(0, clicks - 5) },
-    { day: 'Thu', impressions: Math.max(0, impressions - 50), clicks: Math.max(0, clicks - 2) },
-    { day: 'Fri', impressions: impressions, clicks: clicks }, // Current totals
-  ];
+  // Calculate slices for the Pie/Donut Chart
+  // The whole circle is impressions. So the "remaining" slice is Impressions minus Clicks.
+  const unclicked = Math.max(0, impressions - clicks);
+  
+  const pieData = impressions > 0 
+    ? [
+        { name: 'Total Clicks', value: clicks },
+        { name: 'Unclicked Impressions', value: unclicked }
+      ]
+    : [
+        { name: 'No Data Yet', value: 1 } // Fallback if 0 impressions
+      ];
+
+  // Purple for clicks (matches your click card), dark gray for the rest of the impressions
+  const COLORS = impressions > 0 ? ['#a855f7', '#374151'] : ['#1f2937'];
 
   return (
     <div className="p-6 max-w-6xl mx-auto text-gray-100">
@@ -64,7 +71,7 @@ const AdMetrics = () => {
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to inventory
         </Link>
         <h2 className="text-3xl font-bold tracking-tight">Performance: {ad.name}</h2>
-        <p className="text-gray-400 mt-1">Real-time metrics and historical trends.</p>
+        <p className="text-gray-400 mt-1">Real-time engagement breakdown.</p>
       </div>
 
       {/* Metric Cards Grid */}
@@ -107,33 +114,41 @@ const AdMetrics = () => {
       </div>
 
       {/* Chart Section */}
-      <div className="bg-gray-800/50 border border-gray-700 p-6 rounded-xl">
-        <h3 className="text-lg font-semibold mb-6">Impressions Trend</h3>
-        <div className="h-80 w-full">
+      <div className="bg-gray-800/50 border border-gray-700 p-6 rounded-xl flex flex-col items-center">
+        <div className="w-full text-left mb-2">
+          <h3 className="text-lg font-semibold">Click-Through Rate (CTR) Breakdown</h3>
+          <p className="text-sm text-gray-400">Comparing total clicks against overall impressions.</p>
+        </div>
+        
+        <div className="h-[350px] w-full max-w-lg">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={mockChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorImpressions" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-              <XAxis dataKey="day" stroke="#9ca3af" tickLine={false} axisLine={false} />
-              <YAxis stroke="#9ca3af" tickLine={false} axisLine={false} tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value} />
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={90}  // Adding an inner radius makes it a Donut chart!
+                outerRadius={130}
+                paddingAngle={5}  // Adds a sleek gap between slices
+                dataKey="value"
+                stroke="none"     // Removes the ugly default white borders
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
               <Tooltip 
+                formatter={(value) => value.toLocaleString()}
                 contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#f3f4f6' }}
-                itemStyle={{ color: '#60a5fa' }}
+                itemStyle={{ color: '#e5e7eb' }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="impressions" 
-                stroke="#3b82f6" 
-                strokeWidth={3}
-                fillOpacity={1} 
-                fill="url(#colorImpressions)" 
+              <Legend 
+                verticalAlign="bottom" 
+                height={36} 
+                iconType="circle"
+                wrapperStyle={{ paddingTop: '20px' }}
               />
-            </AreaChart>
+            </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
