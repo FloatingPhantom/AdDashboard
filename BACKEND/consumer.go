@@ -12,7 +12,8 @@ import (
 
 // 1. We create a struct to hold our dependencies and handle the messages
 type metricsConsumer struct {
-	ms *storage.MetricsStore
+	ms      *storage.MetricsStore
+	adStore storage.AdsStore
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
@@ -39,26 +40,39 @@ func (c *metricsConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 		} else {
 			eventType := topic[:len(topic)-1] // 'impressions' -> 'impression'
 
+			// increment metric
 			err := c.ms.Increment(evt.AdID, eventType)
 			if err != nil {
 				log.Printf("[Metrics] ERROR saving to MongoDB for AdID %s: %v", evt.AdID, err)
 			} else {
 				log.Printf("[Metrics] Incremented %s for AdID: %s", eventType, evt.AdID)
 			}
+
+			// if it's a click, also charge the ad balance
+			if eventType == "click" {
+				if ad, err := c.adStore.Get(evt.AdID); err == nil {
+					cost := 1.0
+					if ad.Type == "video" {
+						cost = 2.0
+					}
+					if err := c.adStore.Charge(evt.AdID, cost); err != nil {
+						log.Printf("[Billing] failed to charge AdID %s: %v", evt.AdID, err)
+					} else {
+						log.Printf("[Billing] charged $%.2f for AdID %s", cost, evt.AdID)
+					}
+				}
+			}
 		}
 
-		// 1. Mark the message as processed locally
+		// mark & commit
 		session.MarkMessage(msg, "")
-
-		// 2. FORCE an immediate commit to the Kafka Broker
-		// This bypasses the auto-commit timer and guarantees Kafka saves the state NOW.
 		session.Commit()
 	}
 	return nil
 }
 
 // Update the function signature to take a Context and a WaitGroup
-func startConsumer(ctx context.Context, wg *sync.WaitGroup, brokers []string, ms *storage.MetricsStore) {
+func startConsumer(ctx context.Context, wg *sync.WaitGroup, brokers []string, ms *storage.MetricsStore, adStore storage.AdsStore) {
 	defer wg.Done() // Tell main we are completely finished when this function exits
 
 	cfg := sarama.NewConfig()
@@ -76,7 +90,7 @@ func startConsumer(ctx context.Context, wg *sync.WaitGroup, brokers []string, ms
 	}
 	defer cg.Close() // Ensure the consumer group is cleanly closed
 
-	consumer := &metricsConsumer{ms: ms}
+	consumer := &metricsConsumer{ms: ms, adStore: adStore}
 	topics := []string{"impressions", "clicks"}
 
 	log.Printf("[Kafka] Started Consumer Group '%s' for topics: %v", groupID, topics)

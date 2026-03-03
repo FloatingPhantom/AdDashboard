@@ -7,6 +7,8 @@ const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
   const [dailyLimit, setDailyLimit] = useState(initial?.dailyLimit || '');
   const [startDate, setStartDate] = useState(initial?.startDate ? new Date(initial.startDate).toISOString().substr(0,10) : '');
   const [endDate, setEndDate] = useState(initial?.endDate ? new Date(initial.endDate).toISOString().substr(0,10) : '');
+  const [type, setType] = useState(initial?.type || 'image');
+  const [url, setUrl] = useState(initial?.url || '');
   const [geofences, setGeofences] = useState((initial?.geofences||[]).join(', '));
 
   useEffect(() => {
@@ -14,6 +16,8 @@ const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
     setDailyLimit(initial?.dailyLimit || '');
     setStartDate(initial?.startDate ? new Date(initial.startDate).toISOString().substr(0,10) : '');
     setEndDate(initial?.endDate ? new Date(initial.endDate).toISOString().substr(0,10) : '');
+    setType(initial?.type || 'image');
+    setUrl(initial?.url || '');
     setGeofences((initial?.geofences||[]).join(', '));
   }, [initial]);
 
@@ -23,6 +27,8 @@ const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
       ...initial,
       name,
       dailyLimit: Number(dailyLimit),
+      type,
+      url,
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null,
       geofences: geofences.split(',').map(s => s.trim()).filter(Boolean),
@@ -103,6 +109,32 @@ const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all [color-scheme:dark]"
+                />
+              </div>
+            </div>
+
+            {/* Type and URL Inputs */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Ad Type</label>
+                <select
+                  value={type}
+                  onChange={e => setType(e.target.value)}
+                  className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                >
+                  <option value="image">Banner ($1 per click)</option>
+                  <option value="video">Video ($2 per click)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Destination URL</label>
+                <input
+                  type="url"
+                  required
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-gray-500"
                 />
               </div>
             </div>

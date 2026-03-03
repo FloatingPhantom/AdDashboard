@@ -41,15 +41,22 @@ func RegisterAdRoutes(r *gin.Engine, store storage.AdsStore) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "daily limit cannot be negative"})
 				return
 			}
+			if input.Type != "image" && input.Type != "video" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "type must be \"image\" or \"video\""})
+				return
+			}
 			remaining := calculateRemaining(store.List())
 			if input.DailyLimit > remaining {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "daily limit exceeds remaining capacity"})
 				return
 			}
+			// optional: URL may be empty or validate format elsewhere
 			input.ID = uuid.NewString()
 			if input.Status == "" {
 				input.Status = "Active"
 			}
+			// set initial balance equal to the daily limit
+			input.Balance = input.DailyLimit
 			now := time.Now()
 			if input.StartDate == nil {
 				input.StartDate = &now
@@ -90,7 +97,25 @@ func RegisterAdRoutes(r *gin.Engine, store storage.AdsStore) {
 			existing.StartDate = input.StartDate
 			existing.EndDate = input.EndDate
 			existing.Geofences = input.Geofences
-
+		existing.Type = input.Type
+		existing.URL = input.URL
+			// if the daily limit changed, reset balance to new limit
+			existing.Balance = input.DailyLimit
+			// validate again for update
+			if existing.DailyLimit < 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "daily limit cannot be negative"})
+				return
+			}
+			if existing.Type != "image" && existing.Type != "video" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "type must be \"image\" or \"video\""})
+				return
+			}
+			// recalc remaining budget when daily limit changed
+			remaining := calculateRemaining(store.List())
+			if existing.DailyLimit > remaining {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "daily limit exceeds remaining capacity"})
+				return
+			}
 			if err := store.Update(existing); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -101,7 +126,7 @@ func RegisterAdRoutes(r *gin.Engine, store storage.AdsStore) {
 		ads.DELETE("/:id", func(c *gin.Context) {
 			id := c.Param("id")
 			if err := store.Delete(id); err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 			c.Status(http.StatusNoContent)

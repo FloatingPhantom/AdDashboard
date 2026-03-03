@@ -72,21 +72,27 @@ func RegisterMetricsRoute(r *gin.Engine, ms *storage.MetricsStore, adStore stora
 		if m.Impressions > 0 {
 			ctr = float64(m.Clicks) / float64(m.Impressions) * 100
 		}
-		// compute CPC using ad's daily limit if available
-		cpc := 0.0
-		if m.Clicks > 0 {
-			if ad, err := adStore.Get(id); err == nil {
-				if ad.DailyLimit > 0 {
-					cpc = ad.DailyLimit / float64(m.Clicks)
-				}
+		// determine cost per click based on ad type
+		costPerClick := 1.0
+		if ad, err := adStore.Get(id); err == nil {
+			if ad.Type == "video" {
+				costPerClick = 2.0
 			}
+		}
+		spend := float64(m.Clicks) * costPerClick
+		// balance is stored on ad and kept up-to-date by consumer
+		balance := 0.0
+		if ad, err := adStore.Get(id); err == nil {
+			balance = ad.Balance
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"adId":        m.AdID,
 			"impressions": m.Impressions,
 			"clicks":      m.Clicks,
 			"ctr":         ctr,
-			"cpc":         cpc,
+			"cpc":         costPerClick,
+			"spend":       spend,
+			"balance":     balance,
 			"updatedAt":   m.UpdatedAt,
 		})
 	})

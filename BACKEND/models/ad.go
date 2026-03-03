@@ -19,4 +19,10 @@ type Ad struct {
 
 	// Geofencing: simple list of location identifiers (e.g. country codes, city names, or geojson strings)
 	Geofences []string `json:"geofences,omitempty" bson:"geofences,omitempty"`
+
+	// new billing fields
+	Type string `json:"type" bson:"type"` // "image" or "video"
+	URL  string `json:"url" bson:"url"`
+	// remaining money for the day, decremented per click
+	Balance float64 `json:"balance" bson:"balance"`
 }

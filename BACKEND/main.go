@@ -58,7 +58,7 @@ func main() {
 
 	// 4. Start consumer goroutine
 	wg.Add(1)
-	go startConsumer(ctx, &wg, kafkaBrokers, metricsStore)
+	go startConsumer(ctx, &wg, kafkaBrokers, metricsStore, store)
 
 	// 5. Gin Router Setup
 	r := gin.Default()

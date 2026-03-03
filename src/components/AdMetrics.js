@@ -43,6 +43,8 @@ const AdMetrics = () => {
   const clicks = ad.metrics?.clicks || 0;
   const ctr = ad.metrics?.ctr !== undefined ? ad.metrics.ctr.toFixed(2) : computeCTR(impressions, clicks).toFixed(2);
   const cpc = ad.metrics?.cpc !== undefined ? ad.metrics.cpc.toFixed(2) : computeCPC(impressions, clicks, ad.dailyLimit || 0).toFixed(2);
+  const spend = ad.metrics?.spend !== undefined ? ad.metrics.spend.toFixed(2) : (clicks * (ad.type === 'video' ? 2 : 1)).toFixed(2);
+  const balance = ad.metrics?.balance !== undefined ? ad.metrics.balance.toFixed(2) : (ad.dailyLimit - spend).toFixed(2);
 
   // Calculate slices for the Pie/Donut Chart
   // The whole circle is impressions. So the "remaining" slice is Impressions minus Clicks.
@@ -110,6 +112,24 @@ const AdMetrics = () => {
             <DollarSign className="w-5 h-5 text-amber-500" />
           </div>
           <div className="text-3xl font-bold text-white">${cpc}</div>
+        </div>
+
+        {/* Spend Card */}
+        <div className="bg-gray-800/50 border border-gray-700 p-6 rounded-xl hover:bg-gray-800 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm font-medium text-gray-400">Total Spend</div>
+            <DollarSign className="w-5 h-5 text-red-500" />
+          </div>
+          <div className="text-3xl font-bold text-white">${spend}</div>
+        </div>
+
+        {/* Balance Card */}
+        <div className="bg-gray-800/50 border border-gray-700 p-6 rounded-xl hover:bg-gray-800 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm font-medium text-gray-400">Remaining Balance</div>
+            <DollarSign className="w-5 h-5 text-green-500" />
+          </div>
+          <div className="text-3xl font-bold text-white">${balance}</div>
         </div>
       </div>
 

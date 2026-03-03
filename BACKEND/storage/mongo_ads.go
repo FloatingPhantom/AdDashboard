@@ -87,3 +87,22 @@ func (m *MongoAdsStore) Delete(id string) error {
 	}
 	return nil
 }
+
+// Charge deducts a positive amount from the ad's balance. It uses an atomic
+// $inc to ensure concurrent safety and returns ErrNotFound if the ad
+// doesn't exist.
+func (m *MongoAdsStore) Charge(id string, amount float64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := m.col.UpdateOne(ctx,
+		bson.M{"id": id},
+		bson.M{"$inc": bson.M{"balance": -amount}},
+	)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

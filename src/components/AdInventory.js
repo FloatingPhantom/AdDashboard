@@ -34,6 +34,7 @@ const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Megaphone className="w-4 h-4"/> Ad Name</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Activity className="w-4 h-4"/> Status</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><DollarSign className="w-4 h-4"/> Daily Limit</div></th>
+              <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Megaphone className="w-4 h-4"/> Type</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Calendar className="w-4 h-4"/> Schedule</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><MapPin className="w-4 h-4"/> Geofences</div></th>
               <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
@@ -76,6 +77,11 @@ const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ad.dailyLimit === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
                       ${ad.dailyLimit}
                     </span>
+                  </td>
+
+                  {/* Type Column */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {ad.type}
                   </td>
 
                   {/* Schedule Column */}

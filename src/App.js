@@ -26,7 +26,8 @@ function App() {
   }, []);
 
   const remainingCapacity = () => {
-    const sum = ads.reduce((acc, ad) => acc + Number(ad.dailyLimit||0), 0);
+    const list = ads || [];
+    const sum = list.reduce((acc, ad) => acc + Number(ad.dailyLimit || 0), 0);
     return balance - sum;
   };
 
@@ -91,7 +92,7 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen flex flex-col">
-        <BudgetHeader balance={balance} ads={ads.filter(a => a.status==='Active')} />
+        <BudgetHeader balance={balance} ads={(ads || []).filter(a => a.status==='Active')} />
         <main className="flex-grow p-6">
           <Routes>
             <Route path="/" element={
@@ -109,7 +110,7 @@ function App() {
                 {error && <p className="mt-4 text-red-500">Error: {error}</p>}
                 {!loading && !error && (
                   <AdInventory
-                    ads={ads}
+                    ads={ads || []}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onToggleStatus={toggleStatus}

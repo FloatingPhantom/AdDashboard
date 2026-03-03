@@ -17,4 +17,6 @@ type AdsStore interface {
 	Create(ad *models.Ad) error
 	Update(ad *models.Ad) error
 	Delete(id string) error
+	// Charge deducts the given amount from the ad's balance atomically
+	Charge(id string, amount float64) error
 }

@@ -4,6 +4,8 @@ This directory contains a simple REST API server implemented in Go using the Gin
 
 - CRUD operations for ads persisted in MongoDB
 - Fixed total account balance ($5,000) enforced when creating new ads
+- Ads now include `type` (image or video) and a destination `url`; pricing is $1 per click for banner/image ads and $2 per click for video ads
+- Each ad tracks its own daily balance which is decremented when click events are processed
 - Ad scheduling (start/end times)
 - Geofencing metadata
 
@@ -16,6 +18,10 @@ cd BACKEND
 go mod tidy         # fetch dependencies
 go run main.go      # start server on http://localhost:8080
 ```
+
+## Endpoints
+
+The `/metrics/:id` response now also returns `spend` (clicks × price) and current `balance` remaining on the ad.  Click events automatically deduct from the ad's balance when Kafka messages are consumed.
 
 ## Endpoints
 
