@@ -60,12 +60,11 @@ const AdInventory = ({ ads, onEdit, onDelete }) => {
                     {ad.type}
                   </td>
 
-                  {/* Schedule Column */}
+                  {/* Schedule Column (hour range) */}
                   <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                    <div className="flex flex-col text-xs">
-                      <span>{formatDate(ad.startDate)}</span>
-                      <span className="text-gray-500">to {formatDate(ad.endDate)}</span>
-                    </div>
+                    {(ad.hourStart !== undefined && ad.hourEnd !== undefined)
+                      ? `${ad.hourStart}-${ad.hourEnd}`
+                      : '-'}
                   </td>
 
                   {/* Geofences Column (Micro-visualization with Chips) */}

@@ -5,8 +5,11 @@ import { Save, X, DollarSign, MapPin, Calendar, Megaphone } from 'lucide-react';
 const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
   const [name, setName] = useState(initial?.name || '');
   const [dailyLimit, setDailyLimit] = useState(initial?.dailyLimit || '');
-  const [startDate, setStartDate] = useState(initial?.startDate ? new Date(initial.startDate).toISOString().substr(0,10) : '');
-  const [endDate, setEndDate] = useState(initial?.endDate ? new Date(initial.endDate).toISOString().substr(0,10) : '');
+  const [timeRange, setTimeRange] = useState(
+    initial?.hourStart !== undefined && initial?.hourEnd !== undefined
+      ? `${initial.hourStart}-${initial.hourEnd}`
+      : '0-24'
+  );
   const [type, setType] = useState(initial?.type || 'image');
   const [url, setUrl] = useState(initial?.url || '');
   const [geofences, setGeofences] = useState((initial?.geofences||[]).join(', '));
@@ -14,23 +17,31 @@ const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
   useEffect(() => {
     setName(initial?.name || '');
     setDailyLimit(initial?.dailyLimit || '');
-    setStartDate(initial?.startDate ? new Date(initial.startDate).toISOString().substr(0,10) : '');
-    setEndDate(initial?.endDate ? new Date(initial.endDate).toISOString().substr(0,10) : '');
     setType(initial?.type || 'image');
     setUrl(initial?.url || '');
     setGeofences((initial?.geofences||[]).join(', '));
+    setTimeRange(
+      initial?.hourStart !== undefined && initial?.hourEnd !== undefined
+        ? `${initial.hourStart}-${initial.hourEnd}`
+        : '0-24'
+    );
   }, [initial]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // parse timeRange string (e.g. "5-7" or "0-24")
+    const [startStr, endStr] = timeRange.split('-');
+    const hourStart = Number(startStr);
+    const hourEnd = Number(endStr);
+
     const ad = {
       ...initial,
       name,
       dailyLimit: Number(dailyLimit),
       type,
       url,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
+      hourStart,
+      hourEnd,
       geofences: geofences.split(',').map(s => s.trim()).filter(Boolean),
     };
     onSave(ad);
@@ -88,29 +99,16 @@ const AdFormModal = ({ isOpen, onClose, onSave, initial }) => {
             </div>
 
             {/* Dates Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-1">
-                  <Calendar className="w-4 h-4 text-gray-400"/> Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all [color-scheme:dark]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-1">
-                  <Calendar className="w-4 h-4 text-gray-400"/> End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all [color-scheme:dark]"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-gray-400"/> Active Hours (e.g. 0-24 or 5-7)
+              </label>
+              <input
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                placeholder="0-24"
+                className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all [color-scheme:dark]"
+              />
             </div>
 
             {/* Type and URL Inputs */}

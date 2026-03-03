@@ -83,7 +83,11 @@ func main() {
 	})
 
 	handlers.RegisterEventRoutes(r, producer, store, rdb)
-	handlers.RegisterAdRoutes(r, store)
+	// populate redis with any existing ads before the HTTP server starts
+	if err := handlers.WarmUpRedisCache(ctx, mongoAds, rdb); err != nil {
+		log.Fatalf("redis warmup failed: %v", err)
+	}
+	handlers.RegisterAdRoutes(r, store, rdb)
 	handlers.RegisterMetricsRoute(r, metricsStore, store)
 	handlers.RegisterDecisionRoute(r, rdb)
 

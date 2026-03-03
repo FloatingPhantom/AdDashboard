@@ -30,7 +30,9 @@ GET /serve-ad?lat=40.7128&lng=-74.0060&tz=America/New_York
   "image_url": "https://cdn.example.com/creative.jpg",
   "click_url": "https://advertiser.example/landing",
   "cpc": 1.0,
-  "allowed_hours": [8,9,10,11,12,13,14,15,16,17],
+  // scheduling is expressed as a start/end hour range
+  "hourStart": 8,
+  "hourEnd": 18,
   "center_lat": 40.7128,
   "center_lng": -74.0060,
   "radius_km": 50
@@ -52,7 +54,7 @@ GET /serve-ad?lat=40.7128&lng=-74.0060&tz=America/New_York
    - Fallback (less ideal for large scale): `SCAN` for keys `ad:config:*` and `GET` each value.
 4. For each ad config, apply filters (short-circuiting as soon as one fails):
    - Budget filter: fetch `ad:budget:<adID>` and parse float; skip if `<= 0`.
-   - Schedule filter: check if user's local hour is included in `allowed_hours`.
+   - Schedule filter: either look for the current hour in `allowed_hours`, or if the config provides `hourStart`/`hourEnd` treat it as a half-open range [start,end) and include when the user's local hour falls within it.
    - Geofence filter: compute great-circle distance using Haversine formula between user (`lat`,`lng`) and ad's (`center_lat`,`center_lng`); skip if distance > `radius_km`.
 5. Collect all eligible ads into an in-memory slice.
 6. Selection strategy:
@@ -90,7 +92,7 @@ Given the single ad in your list:
 Assume the matching Redis config for this ad (`ad:config:ccf73b24-...`) contains a geofence centered near the user's location, and `ad:budget:ccf73b24-...` is `10.0`.
 
 - Request: `GET /serve-ad?lat=40.7128&lng=-74.0060&tz=America/New_York`
-- If local hour is included in `allowed_hours` and the user is within `radius_km`, the engine will return:
+- If local hour satisfies the schedule (either via `allowed_hours` or `hourStart`/`hourEnd`) and the user is within `radius_km`, the engine will return:
 
 ```json
 {
