@@ -26,7 +26,8 @@ function App() {
   }, []);
 
   const remainingCapacity = () => {
-    const sum = ads.reduce((acc, ad) => acc + Number(ad.dailyLimit||0), 0);
+    const list = ads || [];
+    const sum = list.reduce((acc, ad) => acc + Number(ad.dailyLimit || 0), 0);
     return balance - sum;
   };
 
@@ -43,12 +44,12 @@ function App() {
       return;
     }
     try {
-      if (editingAd) {
+        if (editingAd) {
         const updated = await updateAd(ad);
-        setAds((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        setAds((prev) => (prev || []).map((a) => (a.id === updated.id ? updated : a)));
       } else {
         const created = await createAd(ad);
-        setAds((prev) => [...prev, created]);
+        setAds((prev) => [...(prev || []), created]);
       }
     } catch (err) {
       alert(err.message);
@@ -69,7 +70,7 @@ function App() {
   const confirmDelete = async () => {
     try {
       await deleteAd(adToDelete.id);
-      setAds((prev) => prev.filter((a) => a.id !== adToDelete.id));
+      setAds((prev) => (prev || []).filter((a) => a.id !== adToDelete.id));
     } catch (err) {
       alert(err.message);
     }

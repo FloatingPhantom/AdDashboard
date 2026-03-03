@@ -7,6 +7,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"myrik.com/ad/models"
 	"myrik.com/ad/storage"
 )
@@ -18,7 +19,7 @@ type eventMessage struct {
 	Time int64  `json:"time"`
 }
 
-func RegisterEventRoutes(r *gin.Engine, producer sarama.SyncProducer) {
+func RegisterEventRoutes(r *gin.Engine, producer sarama.SyncProducer, adStore storage.AdsStore, rdb *redis.Client) {
 	ev := r.Group("/events")
 	{
 		ev.POST("/impression", func(c *gin.Context) {
@@ -26,6 +27,10 @@ func RegisterEventRoutes(r *gin.Engine, producer sarama.SyncProducer) {
 			if err := c.ShouldBindJSON(&body); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
+			}
+			// decrement budget for impression cost (constant $0.001)
+			if _, err := storage.DecrementBudget(c.Request.Context(), rdb, body.AdID, 0.001); err != nil {
+				// non-fatal; log server side if needed
 			}
 			payload, _ := json.Marshal(eventMessage{AdID: body.AdID, Time: time.Now().Unix()})
 			msg := &sarama.ProducerMessage{
@@ -44,6 +49,16 @@ func RegisterEventRoutes(r *gin.Engine, producer sarama.SyncProducer) {
 			if err := c.ShouldBindJSON(&body); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
+			}
+			// compute cost based on ad type; fall back to $1
+			cost := 1.0
+			if ad, err := adStore.Get(body.AdID); err == nil {
+				if ad.Type == "video" {
+					cost = 2.0
+				}
+			}
+			if _, err := storage.DecrementBudget(c.Request.Context(), rdb, body.AdID, cost); err != nil {
+				// log if required
 			}
 			payload, _ := json.Marshal(eventMessage{AdID: body.AdID, Time: time.Now().Unix()})
 			msg := &sarama.ProducerMessage{

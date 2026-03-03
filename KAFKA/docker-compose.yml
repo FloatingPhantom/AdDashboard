@@ -9,7 +9,6 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      # Setting up two listeners: one for your local Go backend, one for the Docker network
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,INTERNAL://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
@@ -20,6 +19,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka_data:/var/lib/kafka/data
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -30,10 +31,9 @@ services:
       - kafka
     environment:
       KAFKA_CLUSTERS_0_NAME: Local-Ad-Platform
-      # The UI uses the internal Docker network listener to fetch metadata
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       DYNAMIC_CONFIG_ENABLED: 'true'
-  
+
   mongodb:
     image: mongo:latest
     container_name: ad-tech-mongo
@@ -42,16 +42,40 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo_data:/data/db
 
   mongo-express:
     image: mongo-express:latest
     container_name: ad-tech-mongo-ui
     ports:
-      # Exposing on 8082 to avoid colliding with your Go app (8080) and Kafka UI (8081)
-      - "8082:8081" 
+      - "8082:8081"
     depends_on:
       - mongodb
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
       ME_CONFIG_MONGODB_ADMINPASSWORD: password
       ME_CONFIG_MONGODB_SERVER: mongodb
+
+  redis:
+    image: redis:latest
+    container_name: ad-tech-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: ad-tech-redis-ui
+    ports:
+      - "8083:5540"
+    depends_on:
+      - redis
+
+# These definitions at the bottom tell Docker to manage the persistent storage natively
+volumes:
+  kafka_data:
+  mongo_data:
+  redis_data:

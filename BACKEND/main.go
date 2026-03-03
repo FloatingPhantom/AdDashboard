@@ -13,6 +13,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -52,6 +53,12 @@ func main() {
 	}
 	defer producer.Close()
 
+	// 3. Redis client for real‑time budget & decision engine
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	if err := rdb.Ping(ctxMongo).Err(); err != nil {
+		log.Fatalf("redis ping: %v", err)
+	}
+
 	// 3. Graceful Shutdown Primitives
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -75,9 +82,10 @@ func main() {
 		c.Next()
 	})
 
-	handlers.RegisterEventRoutes(r, producer)
+	handlers.RegisterEventRoutes(r, producer, store, rdb)
 	handlers.RegisterAdRoutes(r, store)
 	handlers.RegisterMetricsRoute(r, metricsStore, store)
+	handlers.RegisterDecisionRoute(r, rdb)
 
 	// 6. Explicit HTTP Server (required for graceful shutdown)
 	srv := &http.Server{

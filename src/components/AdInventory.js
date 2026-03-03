@@ -35,7 +35,7 @@ const AdInventory = ({ ads, onEdit, onDelete }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700/50">
-            {ads.map((ad) => {
+            {(ads || []).map((ad) => {
               return (
                 <tr key={ad.id} className="hover:bg-gray-750 transition-colors group">
                   {/* Ad Name Column */}
@@ -107,7 +107,7 @@ const AdInventory = ({ ads, onEdit, onDelete }) => {
             })}
 
             {/* Empty State Redesign */}
-            {ads.length === 0 && (
+            {(ads || []).length === 0 && (
               <tr>
                 <td colSpan="5" className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center justify-center text-gray-500">
