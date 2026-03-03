@@ -30,9 +30,9 @@ const AdMetrics = () => {
     return (clicks / impressions) * 100;
   };
   
-  const computeCPC = (impressions, clicks, dailyLimit) => {
-    if (!clicks) return 0;
-    return dailyLimit / clicks; 
+  const computeCPC = (spend, clicks) => {
+    if (!clicks || clicks === 0) return 0;
+    return spend / clicks; 
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400 animate-pulse">Loading metrics dashboard...</div>;
@@ -41,13 +41,28 @@ const AdMetrics = () => {
 
   const impressions = ad.metrics?.impressions || 0;
   const clicks = ad.metrics?.clicks || 0;
-  const ctr = ad.metrics?.ctr !== undefined ? ad.metrics.ctr.toFixed(2) : computeCTR(impressions, clicks).toFixed(2);
-  const cpc = ad.metrics?.cpc !== undefined ? ad.metrics.cpc.toFixed(2) : computeCPC(impressions, clicks, ad.dailyLimit || 0).toFixed(2);
-  const spend = ad.metrics?.spend !== undefined ? ad.metrics.spend.toFixed(2) : (clicks * (ad.type === 'video' ? 2 : 1)).toFixed(2);
-  const balance = ad.metrics?.balance !== undefined ? ad.metrics.balance.toFixed(2) : (ad.dailyLimit - spend).toFixed(2);
+  
+  // 1. Calculate CTR
+  const ctr = ad.metrics?.ctr !== undefined 
+    ? ad.metrics.ctr.toFixed(2) 
+    : computeCTR(impressions, clicks).toFixed(2);
+
+  // 2. Calculate Spend FIRST (as a raw number so we can use it for math)
+  const rawSpend = ad.metrics?.spend !== undefined 
+    ? ad.metrics.spend 
+    : (impressions * 0.001) + (clicks * (ad.type === 'video' ? 2 : 1)); // e.g., $2 for video, $1 for image
+  
+  const spend = rawSpend.toFixed(2); // Format for display
+
+  // 3. NOW calculate CPC using the actual spend
+  const cpc = computeCPC(rawSpend, clicks).toFixed(2);
+
+  // 4. Calculate Balance
+  const balance = ad.metrics?.balance !== undefined 
+    ? ad.metrics.balance.toFixed(2) 
+    : Math.max(0, (ad.dailyLimit || 0) - rawSpend).toFixed(2); // Added Math.max so balance doesn't go negative visually!
 
   // Calculate slices for the Pie/Donut Chart
-  // The whole circle is impressions. So the "remaining" slice is Impressions minus Clicks.
   const unclicked = Math.max(0, impressions - clicks);
   
   const pieData = impressions > 0 
