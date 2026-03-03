@@ -2,11 +2,16 @@ import React from 'react';
 import { Wallet, TrendingUp, AlertCircle } from 'lucide-react';
 
 const BudgetHeader = ({ balance, ads }) => {
-  const activeSum = ads.reduce((sum, ad) => sum + Number(ad.dailyLimit || 0), 0);
-  const remaining = balance - activeSum;
-  
-  // Calculate percentage used for the progress bar
-  const percentUsed = balance > 0 ? Math.min((activeSum / balance) * 100, 100) : 0;
+  const list = ads || [];
+  // daily usage = sum of (dailyLimit - current balance) for each ad
+  const dailyUsage = list.reduce((sum, ad) => {
+    const dl = Number(ad.dailyLimit || 0);
+    const bal = Number(ad.balance || dl);
+    return sum + Math.max(0, dl - bal);
+  }, 0);
+
+  // Calculate percentage used of account balance
+  const percentUsed = balance > 0 ? Math.min((dailyUsage / balance) * 100, 100) : 0;
   const isWarning = percentUsed > 85;
 
   return (
@@ -24,14 +29,14 @@ const BudgetHeader = ({ balance, ads }) => {
           </div>
         </div>
 
-        {/* Daily Capacity */}
+        {/* Daily Usage */}
         <div className="flex items-center gap-4">
           <div className={`p-3 rounded-lg border ${isWarning ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
             <TrendingUp className={`w-6 h-6 ${isWarning ? 'text-amber-400' : 'text-emerald-400'}`} />
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-400">Remaining Daily Capacity</div>
-            <div className="text-2xl font-bold text-white">${remaining.toLocaleString()}</div>
+            <div className="text-sm font-medium text-gray-400">Daily Usage</div>
+            <div className="text-2xl font-bold text-white">${dailyUsage.toFixed(2)}</div>
           </div>
         </div>
       </div>

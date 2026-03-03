@@ -1,23 +1,18 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { trackImpression, trackClick } from '../api';
 import { 
   Edit2, 
   Trash2, 
   MapPin, 
   Calendar, 
   DollarSign, 
-  Activity,
   Megaphone
 } from 'lucide-react';
 
-const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
-  useEffect(() => {
-    // Track impressions for ads when component mounts or ads list changes
-    ads.forEach(a => {
-      trackImpression(a.id).catch(() => {});
-    });
-  }, [ads]);
+const AdInventory = ({ ads, onEdit, onDelete }) => {
+  // Impression and click tracking removed from frontend.
+  // Impressions and clicks are sourced only from the external
+  // tracking system; the dashboard must not generate these events.
 
   // Helper to format dates nicely
   const formatDate = (dateString) => {
@@ -32,7 +27,6 @@ const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
           <thead className="text-xs text-gray-400 uppercase bg-gray-900/50 border-b border-gray-700">
             <tr>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Megaphone className="w-4 h-4"/> Ad Name</div></th>
-              <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Activity className="w-4 h-4"/> Status</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><DollarSign className="w-4 h-4"/> Daily Limit</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Megaphone className="w-4 h-4"/> Type</div></th>
               <th className="px-6 py-4 font-medium tracking-wider"><div className="flex items-center gap-2"><Calendar className="w-4 h-4"/> Schedule</div></th>
@@ -42,8 +36,6 @@ const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
           </thead>
           <tbody className="divide-y divide-gray-700/50">
             {ads.map((ad) => {
-              const isActive = ad.status === 'Active';
-              
               return (
                 <tr key={ad.id} className="hover:bg-gray-750 transition-colors group">
                   {/* Ad Name Column */}
@@ -51,25 +43,9 @@ const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
                     <Link
                       to={`/ads/${ad.id}`}
                       className="text-blue-400 font-medium hover:text-blue-300 hover:underline flex items-center gap-2"
-                      onClick={() => trackClick(ad.id)}
                     >
                       {ad.name}
                     </Link>
-                  </td>
-
-                  {/* Status Toggle Column */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button 
-                      onClick={() => onToggleStatus(ad.id)}
-                      className="flex items-center gap-2 focus:outline-none"
-                    >
-                      <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isActive ? 'bg-emerald-500' : 'bg-gray-600'}`}>
-                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-4' : 'translate-x-1'}`} />
-                      </div>
-                      <span className={`text-xs font-semibold ${isActive ? 'text-emerald-400' : 'text-gray-400'}`}>
-                        {ad.status}
-                      </span>
-                    </button>
                   </td>
 
                   {/* Daily Limit Column */}
@@ -133,7 +109,7 @@ const AdInventory = ({ ads, onEdit, onDelete, onToggleStatus }) => {
             {/* Empty State Redesign */}
             {ads.length === 0 && (
               <tr>
-                <td colSpan="6" className="px-6 py-12 text-center">
+                <td colSpan="5" className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center justify-center text-gray-500">
                     <Megaphone className="w-12 h-12 mb-3 opacity-20" />
                     <p className="text-lg text-gray-400 font-medium">No ads created yet</p>

@@ -79,7 +79,9 @@ func RegisterMetricsRoute(r *gin.Engine, ms *storage.MetricsStore, adStore stora
 				costPerClick = 2.0
 			}
 		}
-		spend := float64(m.Clicks) * costPerClick
+		// include impression cost
+		impCost := 0.001
+		spend := float64(m.Clicks)*costPerClick + float64(m.Impressions)*impCost
 		// balance is stored on ad and kept up-to-date by consumer
 		balance := 0.0
 		if ad, err := adStore.Get(id); err == nil {

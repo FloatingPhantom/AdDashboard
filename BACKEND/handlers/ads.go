@@ -12,13 +12,11 @@ import (
 
 const MaxBalance = 5000.0
 
-// calculateRemaining returns remaining capacity based on active ads' daily limits
+// calculateRemaining returns remaining capacity based on all ads' daily limits
 func calculateRemaining(ads []*models.Ad) float64 {
 	var sum float64
 	for _, a := range ads {
-		if a.Status == "Active" {
-			sum += a.DailyLimit
-		}
+		sum += a.DailyLimit
 	}
 	return MaxBalance - sum
 }
@@ -52,9 +50,7 @@ func RegisterAdRoutes(r *gin.Engine, store storage.AdsStore) {
 			}
 			// optional: URL may be empty or validate format elsewhere
 			input.ID = uuid.NewString()
-			if input.Status == "" {
-				input.Status = "Active"
-			}
+
 			// set initial balance equal to the daily limit
 			input.Balance = input.DailyLimit
 			now := time.Now()
@@ -91,16 +87,18 @@ func RegisterAdRoutes(r *gin.Engine, store storage.AdsStore) {
 				return
 			}
 			// preserve immutable fields
+			limitChanged := existing.DailyLimit != input.DailyLimit
 			existing.Name = input.Name
 			existing.DailyLimit = input.DailyLimit
-			existing.Status = input.Status
 			existing.StartDate = input.StartDate
 			existing.EndDate = input.EndDate
 			existing.Geofences = input.Geofences
-		existing.Type = input.Type
-		existing.URL = input.URL
-			// if the daily limit changed, reset balance to new limit
-			existing.Balance = input.DailyLimit
+			existing.Type = input.Type
+			existing.URL = input.URL
+			// only reset balance if daily limit changed
+			if limitChanged {
+				existing.Balance = input.DailyLimit
+			}
 			// validate again for update
 			if existing.DailyLimit < 0 {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "daily limit cannot be negative"})

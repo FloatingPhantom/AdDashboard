@@ -62,6 +62,18 @@ func (c *metricsConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 					}
 				}
 			}
+
+			// also charge a small amount per impression
+			if eventType == "impression" {
+				if _, err := c.adStore.Get(evt.AdID); err == nil {
+					impCost := 0.001 // $0.001 per impression
+					if err := c.adStore.Charge(evt.AdID, impCost); err != nil {
+						log.Printf("[Billing] failed to charge impression for AdID %s: %v", evt.AdID, err)
+					} else {
+						log.Printf("[Billing] charged $%.4f for impression on AdID %s", impCost, evt.AdID)
+					}
+				}
+			}
 		}
 
 		// mark & commit

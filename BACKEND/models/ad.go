@@ -10,7 +10,6 @@ import (
 type Ad struct {
 	ID         string  `json:"id" bson:"id"`
 	Name       string  `json:"name" bson:"name"`
-	Status     string  `json:"status" bson:"status"` // "Active" or "Paused"
 	DailyLimit float64 `json:"dailyLimit" bson:"dailyLimit"`
 
 	// Scheduling fields

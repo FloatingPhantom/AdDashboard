@@ -26,8 +26,7 @@ function App() {
   }, []);
 
   const remainingCapacity = () => {
-    const list = ads || [];
-    const sum = list.reduce((acc, ad) => acc + Number(ad.dailyLimit || 0), 0);
+    const sum = ads.reduce((acc, ad) => acc + Number(ad.dailyLimit||0), 0);
     return balance - sum;
   };
 
@@ -77,22 +76,10 @@ function App() {
     setDeleteOpen(false);
   };
 
-  const toggleStatus = async (id) => {
-    const ad = ads.find((a) => a.id === id);
-    if (!ad) return;
-    const updated = { ...ad, status: ad.status === 'Active' ? 'Paused' : 'Active' };
-    try {
-      const res = await updateAd(updated);
-      setAds((prev) => prev.map((a) => (a.id === res.id ? res : a)));
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   return (
     <Router>
       <div className="min-h-screen flex flex-col">
-        <BudgetHeader balance={balance} ads={(ads || []).filter(a => a.status==='Active')} />
+        <BudgetHeader balance={balance} ads={ads || []} />
         <main className="flex-grow p-6">
           <Routes>
             <Route path="/" element={
@@ -110,10 +97,9 @@ function App() {
                 {error && <p className="mt-4 text-red-500">Error: {error}</p>}
                 {!loading && !error && (
                   <AdInventory
-                    ads={ads || []}
+                    ads={ads}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
-                    onToggleStatus={toggleStatus}
                   />
                 )}
               </>
