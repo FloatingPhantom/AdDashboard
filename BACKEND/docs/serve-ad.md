@@ -9,14 +9,13 @@ It explains inputs, Redis data layout, filtering rules, selection behavior, exam
 - Target latency: sub-10ms request path (in-memory Redis ops + minimal CPU work).
 
 ## Inputs (Query Parameters)
-- `lat` — user latitude (decimal degrees)
-- `lng` — user longitude (decimal degrees)
+- `country` — user ISO country code (e.g. `US`, `IN`, `CA`).  Ads with non-empty `geofences` lists will only serve when the request country matches one of the entries.  Omit for global/unspecified location.
 - `tz` — user's time zone string (IANA format, e.g. `America/New_York`) — used to evaluate local hour for schedule filtering
 
 Example request:
 
 ```
-GET /serve-ad?lat=40.7128&lng=-74.0060&tz=America/New_York
+GET /serve-ad?country=US&tz=America/New_York
 ```
 
 ## Redis Data Model (assumptions)
@@ -55,7 +54,7 @@ GET /serve-ad?lat=40.7128&lng=-74.0060&tz=America/New_York
 4. For each ad config, apply filters (short-circuiting as soon as one fails):
    - Budget filter: fetch `ad:budget:<adID>` and parse float; skip if `<= 0`.
    - Schedule filter: either look for the current hour in `allowed_hours`, or if the config provides `hourStart`/`hourEnd` treat it as a half-open range [start,end) and include when the user's local hour falls within it.
-   - Geofence filter: compute great-circle distance using Haversine formula between user (`lat`,`lng`) and ad's (`center_lat`,`center_lng`); skip if distance > `radius_km`.
+   - Geofence filter: if the ad config includes a non-empty `geofences` list, treat it as a set of allowed country codes and require that the request's `country` query parameter match one of them.  Ads without geofences are considered global.
 5. Collect all eligible ads into an in-memory slice.
 6. Selection strategy:
    - Primary: choose the ad with the highest `cpc`.
@@ -89,10 +88,10 @@ Given the single ad in your list:
 }
 ```
 
-Assume the matching Redis config for this ad (`ad:config:ccf73b24-...`) contains a geofence centered near the user's location, and `ad:budget:ccf73b24-...` is `10.0`.
+Assume the matching Redis config for this ad (`ad:config:ccf73b24-...`) has `"geofences": ["US"]` and `ad:budget:ccf73b24-...` is `10.0`.
 
-- Request: `GET /serve-ad?lat=40.7128&lng=-74.0060&tz=America/New_York`
-- If local hour satisfies the schedule (either via `allowed_hours` or `hourStart`/`hourEnd`) and the user is within `radius_km`, the engine will return:
+- Request: `GET /serve-ad?country=US&tz=America/New_York`
+- If local hour satisfies the schedule (either via `allowed_hours` or `hourStart`/`hourEnd`), the engine will return:
 
 ```json
 {

@@ -18,14 +18,14 @@ import (
 // a JSON string under a key like "ad:config:<adID>". The struct contains the
 // metadata needed by the decision engine.
 type RedisAdConfig struct {
-	ID          string   `json:"id"`
-	ImageURL    string   `json:"image_url"`
-	ClickURL    string   `json:"click_url"`
-	CPC         float64  `json:"cpc"`
+	ID       string  `json:"id"`
+	ImageURL string  `json:"image_url"`
+	ClickURL string  `json:"click_url"`
+	CPC      float64 `json:"cpc"`
 	// either an explicit list of hours or a simple range
-	AllowedHours []int   `json:"allowed_hours"` // 0-23
-	HourStart    int     `json:"hourStart"`
-	HourEnd      int     `json:"hourEnd"`
+	AllowedHours []int `json:"allowed_hours"` // 0-23
+	HourStart    int   `json:"hourStart"`
+	HourEnd      int   `json:"hourEnd"`
 	// geofencing is represented by a list of identifiers (countries, cities, etc.)
 	Geofences []string `json:"geofences,omitempty"`
 }
@@ -35,40 +35,23 @@ type RedisAdConfig struct {
 // memory and only touching Redis for simple GET calls.
 func RegisterDecisionRoute(r *gin.Engine, rdb *redis.Client) {
 	r.GET("/serve-ad", func(c *gin.Context) {
-		// parse user inputs
-		latStr := c.Query("lat")
-		lngStr := c.Query("lng")
+		// parse user inputs: only country code and timezone are required
+		country := c.Query("country") // ISO country code, empty = global
 		tz := c.Query("tz")
-
-		userLat, err := strconv.ParseFloat(latStr, 64)
+		loc, err := time.LoadLocation(tz)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid latitude"})
+			loc = time.UTC
+		}
+		now := time.Now().In(loc)
+		hour := now.Hour()
+
+		ads, err := fetchAllAds(c.Request.Context(), rdb)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load ads"})
 			return
 		}
-		userLng, err := strconv.ParseFloat(lngStr, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid longitude"})
-			return
-		}
-	// variables currently unused because geofencing operates on identifiers
-	// rather than raw coordinates; keep them around to avoid lint errors.
-	_ = userLat
-	_ = userLng
 
-	loc, err := time.LoadLocation(tz)
-	if err != nil {
-		loc = time.UTC
-	}
-	now := time.Now().In(loc)
-	hour := now.Hour()
-
-	ads, err := fetchAllAds(c.Request.Context(), rdb)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load ads"})
-		return
-	}
-
-	var eligible []RedisAdConfig
+		var eligible []RedisAdConfig
 		for _, ad := range ads {
 			// budget check: treat missing key as unlimited rather than 0.
 			budKey := "ad:budget:" + ad.ID
@@ -104,15 +87,24 @@ func RegisterDecisionRoute(r *gin.Engine, rdb *redis.Client) {
 				continue
 			}
 
-// geofence check: currently we store identifiers rather than lat/long
-		// the decision engine would normally evaluate whether the user's
-		// location belongs to any of the strings in ad.Geofences. For this
-		// exercise we simply ignore the filter and assume all geofences match.
-		// (Placeholder for real geofencing logic.)
-		// if len(ad.Geofences) > 0 {
-		//     // perform membership test here
-		// }
+			// country geofence filtering
+			if len(ad.Geofences) > 0 {
+				if country == "" {
+					continue
+				}
+				allowed := false
+				for _, gf := range ad.Geofences {
+					if gf == country {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					continue
+				}
+			}
 
+			// visible candidate
 			eligible = append(eligible, ad)
 		}
 
@@ -133,6 +125,7 @@ func RegisterDecisionRoute(r *gin.Engine, rdb *redis.Client) {
 			"ad_id":     choice.ID,
 			"image_url": choice.ImageURL,
 			"click_url": choice.ClickURL,
+			"cpc":       choice.CPC,
 		})
 	})
 }
@@ -159,19 +152,4 @@ func fetchAllAds(ctx context.Context, rdb *redis.Client) ([]RedisAdConfig, error
 		return nil, err
 	}
 	return results, nil
-}
-
-// withinRadius applies the Haversine formula to compute great-circle distance
-// between two latitude/longitude points and compares it to a radius in km.
-func withinRadius(lat1, lng1, lat2, lng2, radiusKM float64) bool {
-	const earthRadius = 6371.0 // km
-	toRad := func(deg float64) float64 { return deg * math.Pi / 180 }
-	dLat := toRad(lat2 - lat1)
-	dLon := toRad(lng2 - lng1)
-	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
-		math.Cos(toRad(lat1))*math.Cos(toRad(lat2))*
-			math.Sin(dLon/2)*math.Sin(dLon/2)
-	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-	dist := earthRadius * c
-	return dist <= radiusKM
 }
